@@ -4,10 +4,15 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 )
 
 func main() {
-	res, err := http.Head("http://localhost:50510")
+	values := url.Values{
+		"test": {"value"},
+	}
+
+	res, err := http.PostForm("http://localhost:50510", values)
 	if err != nil {
 		panic(err)
 	}
