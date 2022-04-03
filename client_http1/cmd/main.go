@@ -4,15 +4,16 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
+	"os"
 )
 
 func main() {
-	values := url.Values{
-		"test": {"value"},
+	file, err := os.Open("cmd/main.go")
+	if err != nil {
+		panic(err)
 	}
 
-	res, err := http.PostForm("http://localhost:50510", values)
+	res, err := http.Post("http://localhost:50510", "text/plain", file)
 	if err != nil {
 		panic(err)
 	}
