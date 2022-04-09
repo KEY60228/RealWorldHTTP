@@ -1,36 +1,52 @@
 package main
 
 import (
-	"crypto/tls"
+	"bufio"
+	"bytes"
+	"fmt"
+	"io"
 	"log"
+	"net"
 	"net/http"
-	"net/http/httputil"
+	"time"
 )
 
 func main() {
-	cert, err := tls.LoadX509KeyPair("client.crt", "client.key")
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+	conn, err := dialer.Dial("tcp", "localhost:50510")
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+	reader := bufio.NewReader(conn)
+
+	request, _ := http.NewRequest("GET", "http://localhost:50510/upgrade", nil)
+	request.Header.Set("Connection", "Upgrade")
+	request.Header.Set("Upgrade", "MyProtocol")
+	err = request.Write(conn)
 	if err != nil {
 		panic(err)
 	}
 
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				Certificates: []tls.Certificate{cert},
-			},
-		},
-	}
-
-	res, err := client.Get("https://localhost:50510")
+	res, err := http.ReadResponse(reader, request)
 	if err != nil {
 		panic(err)
 	}
-	defer res.Body.Close()
+	log.Println("Status:", res.Status)
+	log.Println("Headers:", res.Header)
 
-	dump, err := httputil.DumpResponse(res, true)
-	if err != nil {
-		panic(err)
+	counter := 10
+	for {
+		data, err := reader.ReadBytes('\n')
+		if err == io.EOF {
+			break
+		}
+		fmt.Println("<- ", string(bytes.TrimSpace(data)))
+		fmt.Fprintf(conn, "%d\n", counter)
+		fmt.Println("->", counter)
+		counter--
 	}
-
-	log.Println(string(dump))
 }
