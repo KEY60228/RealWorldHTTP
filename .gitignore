@@ -7,4 +7,4 @@ openssl.cnf
 *.crt
 *.csr
 *.key
-.srl
+*.srl
