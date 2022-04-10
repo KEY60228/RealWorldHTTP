@@ -3,50 +3,24 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"log"
-	"net"
 	"net/http"
-	"time"
 )
 
 func main() {
-	dialer := &net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
-	}
-	conn, err := dialer.Dial("tcp", "localhost:50510")
+	res, err := http.Get("http://localhost:50510/chunked")
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
-	defer conn.Close()
-	reader := bufio.NewReader(conn)
+	defer res.Body.Close()
 
-	request, _ := http.NewRequest("GET", "http://localhost:50510/upgrade", nil)
-	request.Header.Set("Connection", "Upgrade")
-	request.Header.Set("Upgrade", "MyProtocol")
-	err = request.Write(conn)
-	if err != nil {
-		panic(err)
-	}
-
-	res, err := http.ReadResponse(reader, request)
-	if err != nil {
-		panic(err)
-	}
-	log.Println("Status:", res.Status)
-	log.Println("Headers:", res.Header)
-
-	counter := 10
+	reader := bufio.NewReader(res.Body)
 	for {
-		data, err := reader.ReadBytes('\n')
+		line, err := reader.ReadBytes('\n')
 		if err == io.EOF {
 			break
 		}
-		fmt.Println("<- ", string(bytes.TrimSpace(data)))
-		fmt.Fprintf(conn, "%d\n", counter)
-		fmt.Println("->", counter)
-		counter--
+		log.Println(string(bytes.TrimSpace(line)))
 	}
 }
