@@ -2,3 +2,9 @@ db/
 .env
 
 cookie.txt
+
+openssl.cnf
+*.crt
+*.csr
+*.key
+*.srl
