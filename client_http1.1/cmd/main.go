@@ -2,25 +2,57 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 func main() {
-	res, err := http.Get("http://localhost:50510/chunked")
-	if err != nil {
-		log.Fatal(err)
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
 	}
-	defer res.Body.Close()
+	conn, err := dialer.Dial("tcp", "localhost:50510")
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
 
-	reader := bufio.NewReader(res.Body)
+	req, err := http.NewRequest("GET", "http://localhost:50510/chunked", nil)
+	err = req.Write(conn)
+	if err != nil {
+		panic(err)
+	}
+
+	reader := bufio.NewReader(conn)
+	res, err := http.ReadResponse(reader, req)
+	if err != nil {
+		panic(err)
+	}
+
+	if res.TransferEncoding[0] != "chunked" {
+		panic("wrong transfer encoding")
+	}
 	for {
-		line, err := reader.ReadBytes('\n')
+		sizeStr, err := reader.ReadBytes('\n')
 		if err == io.EOF {
 			break
 		}
-		log.Println(string(bytes.TrimSpace(line)))
+
+		size, err := strconv.ParseInt(string(sizeStr[:len(sizeStr)-2]), 16, 64)
+		if size == 0 {
+			break
+		}
+		if err != nil {
+			panic(err)
+		}
+
+		line := make([]byte, int(size))
+		reader.Read(line)
+		reader.Discard(2)
+		log.Println(" ", string(line))
 	}
 }
